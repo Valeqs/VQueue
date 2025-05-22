@@ -1,48 +1,52 @@
-/*
- * #%L
- * PistonQueue
- * %%
- * Copyright (C) 2021 AlexProgrammerDE
- * %%
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * #L%
- */
 package net.pistonmaster.pistonqueue.velocity.utils;
 
-import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.pistonmaster.pistonqueue.shared.utils.SharedChatUtils;
+import com.velocitypowered.api.proxy.Player;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 public final class ChatUtils {
-  private ChatUtils() {
+  private ChatUtils() {}
+
+  private static final MiniMessage MINI = MiniMessage.miniMessage();
+  private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacyAmpersand();
+
+  /**
+   * Parst zuerst SharedChatUtils (Platzhalter),
+   * dann alle &-Legacy-Codes,
+   * und zuletzt alle MiniMessage-Tags (<yellow>, <click:...>, etc.).
+   */
+  public static Component parseToComponent(String str) {
+    return parseToComponent(str, null);
   }
 
-  public static TextComponent parseToComponent(String str) {
-    return LegacyComponentSerializer.legacySection().deserialize(parseToString(str));
+  public static Component parseToComponent(String str, Player player) {
+    // Shared-Placeholder auflösen
+    String afterShared = SharedChatUtils.parseText(str);
+
+    // (Kein direkter %wait%-Ersatz – wird extern erledigt)
+
+    // 1) &-Codes nach Component
+    Component legacyComp = LEGACY.deserialize(afterShared);
+    // 2) Component zurück zu String mit §-Codes
+    String withSections = LEGACY.serialize(legacyComp);
+    // 3) MiniMessage-Tags parsen
+    return MINI.deserialize(withSections);
   }
 
-  public static String parseToString(String str) {
-    return LegacyComponentSerializer.legacySection().serialize(LegacyComponentSerializer.legacyAmpersand().deserialize(SharedChatUtils.parseText(str)));
+  /**
+   * Für Tab-Listen: verbindet Lines und parst sie wie oben.
+   */
+  public static Component parseTab(List<String> lines) {
+    return parseTab(lines, null);
   }
 
-  public static TextComponent parseTab(List<String> tab) {
-    return parseToComponent(
-      tab.stream()
-        .map(ChatUtils::parseToString)
-        .collect(Collectors.joining("\n"))
-    );
+  public static Component parseTab(List<String> lines, Player player) {
+    String joined = lines.stream().collect(Collectors.joining("\n"));
+    return parseToComponent(joined, player);
   }
 }

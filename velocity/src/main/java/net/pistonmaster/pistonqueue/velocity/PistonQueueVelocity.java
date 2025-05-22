@@ -233,8 +233,8 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
         }
 
         switch (type) {
-          case CHAT -> player.sendMessage(ChatUtils.parseToComponent(message));
-          case ACTION_BAR -> player.sendActionBar(ChatUtils.parseToComponent(message));
+          case CHAT -> player.sendMessage(ChatUtils.parseToComponent(message, player));
+          case ACTION_BAR -> player.sendActionBar(ChatUtils.parseToComponent(message, player));
         }
       }
 

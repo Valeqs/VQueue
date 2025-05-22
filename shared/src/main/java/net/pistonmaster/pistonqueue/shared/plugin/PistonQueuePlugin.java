@@ -144,9 +144,9 @@ public interface PistonQueuePlugin {
         continue;
       }
 
-      String chatMessage = Config.QUEUE_POSITION
-        .replace("%position%", String.valueOf(position.incrementAndGet()))
-        .replace("%total%", String.valueOf(queue.getQueueMap().size()));
+      int currentPosition = position.incrementAndGet();
+      String rawMessage = Config.QUEUE_POSITION.replace("%total%", String.valueOf(queue.getQueueMap().size()));
+      String chatMessage = replacePosition(rawMessage, currentPosition, queue);
 
       player.get().sendMessage(type, chatMessage);
     }
