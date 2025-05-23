@@ -1,22 +1,3 @@
-/*
- * #%L
- * PistonQueue
- * %%
- * Copyright (C) 2021 AlexProgrammerDE
- * %%
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * #L%
- */
 package net.pistonmaster.pistonqueue.bukkit;
 
 import com.google.common.io.ByteArrayDataInput;
@@ -25,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.messaging.PluginMessageListener;
+import org.bukkit.permissions.PermissionAttachment;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -43,7 +25,8 @@ public final class QueuePluginMessageListener implements PluginMessageListener {
     ByteArrayDataInput in = ByteStreams.newDataInput(message);
     String subChannel = in.readUTF();
 
-    if (plugin.isPlayXP() && subChannel.equals("xpV2")) {
+    // ————————————— XP V2 —————————————
+    if (plugin.isPlayXP() && "xpV2".equals(subChannel)) {
       List<UUID> uuids = new ArrayList<>();
       int count = in.readInt();
       for (int i = 0; i < count; i++) {
@@ -52,13 +35,34 @@ public final class QueuePluginMessageListener implements PluginMessageListener {
 
       for (UUID uuid : uuids) {
         Player target = plugin.getServer().getPlayer(uuid);
-
-        if (target == null) {
-          continue;
+        if (target != null) {
+          target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 100.0F, 1.0F);
         }
-
-        target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 100.0F, 1.0F);
       }
+
+      // ————————————— TOS ACCEPTED —————————————
+    } else if ("ACCEPTED".equals(subChannel)) {
+      // erst das UUID/Name/Timestamp auslesen
+      UUID uuid         = UUID.fromString(in.readUTF());
+      String name       = in.readUTF();    // wird hier nicht weiter gebraucht
+      String timestamp  = in.readUTF();    // optional für Logging
+
+      // finde den Bukkit-Spieler
+      Player p = plugin.getServer().getPlayer(uuid);
+      if (p == null) {
+        return; // Spieler gerade nicht online
+      }
+
+      // setze ihm die Permission
+      PermissionAttachment attach = p.addAttachment(plugin);
+      attach.setPermission("piston.valeqs.tos.accepted", true);
+
+      // optional: Bestätigung im Chat
+      p.sendMessage("§aDanke! Du hast die Nutzungsbedingungen akzeptiert.");
+
+      // entferne evtl. Bewegungseinschränkungen etc. direkt
+      // (wenn Du da noch Flags in PistonQueueBukkit hast, kannst Du hier aufräumen)
+
     }
   }
 }

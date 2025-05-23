@@ -154,4 +154,11 @@ public final class StorageTool {
 
     loadData();
   }
+  public static void setDataConfigNode(ConfigurationNode node) {
+    dataConfig = node;
+  }
+  public static ConfigurationNode getDataConfigNode() {
+    return dataConfig;
+  }
 }
+

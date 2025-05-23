@@ -31,3 +31,18 @@ noHealthPackets: true # Do not send health packets.
 noAdvancementPackets: true # Do not send advancement packets.
 noExperiencePackets: true # Do not send experience packets.
 showHeadPacket: true # Does not send entity metadata anymore, causing that the entire player head is shown while in spectator.
+
+# Pages
+tos-pages:
+  de:
+    page_1: "…"
+    page_2: "…"
+    page_3: "…"
+    page_4: "…"
+    page_5: "…"
+  en:
+    page_1: "…"
+    page_2: "…"
+    page_3: "…"
+    page_4: "…"
+    page_5: "…"

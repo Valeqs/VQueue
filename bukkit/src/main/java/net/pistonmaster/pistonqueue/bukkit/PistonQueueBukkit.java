@@ -28,6 +28,25 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
 import java.util.logging.Logger;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BookMeta;
+import org.bukkit.Material;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.TreeMap;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
+import java.util.Collections;
+
 
 @Getter
 public final class PistonQueueBukkit extends JavaPlugin {
@@ -67,11 +86,21 @@ public final class PistonQueueBukkit extends JavaPlugin {
   @SuppressWarnings("deprecation")
   @Override
   public void onEnable() {
+    saveDefaultConfig();
+    this.getCommand("tos").setExecutor(new net.pistonmaster.pistonqueue.bukkit.commands.TosCommand(this));
+    loadTosPages();
+
+    getServer().getMessenger().registerIncomingPluginChannel(this, "piston:queue", new QueuePluginMessageListener(this));
+    getServer().getMessenger().registerOutgoingPluginChannel(this, "piston:queue");
+
+    getServer().getPluginManager().registerEvents(new TosListener(this), this);
+    getServer().getPluginManager().registerEvents(new ServerListener(this), this);
+
+
     Logger log = getLogger();
     log.info(ChatColor.BLUE + "PistonQueue V" + getDescription().getVersion());
 
     log.info(ChatColor.BLUE + "Loading config");
-    saveDefaultConfig();
 
     forceLocation = getConfig().getBoolean("forceLocation");
     forcedWorldName = getConfig().getString("forcedWorldName");
@@ -122,8 +151,6 @@ public final class PistonQueueBukkit extends JavaPlugin {
     }
 
     log.info(ChatColor.BLUE + "Registering listeners");
-    getServer().getPluginManager().registerEvents(new ServerListener(this), this);
-    getServer().getMessenger().registerIncomingPluginChannel(this, "piston:queue", new QueuePluginMessageListener(this));
 
     log.info(ChatColor.BLUE + "Checking for a newer version");
     try {
@@ -143,6 +170,51 @@ public final class PistonQueueBukkit extends JavaPlugin {
       log.severe("Could not check for updates!");
       e.printStackTrace();
     }
+  }
+
+  private final Map<String, List<String>> tosPages = new HashMap<>();
+
+  private void loadTosPages() {
+    ConfigurationSection root = getConfig().getConfigurationSection("tos-pages");
+    if (root == null) return;
+    for (String localeKey : root.getKeys(false)) {
+      ConfigurationSection loc = root.getConfigurationSection(localeKey);
+      // sortiere nach page_1, page_2, …
+      Map<Integer, String> sorted = new TreeMap<>();
+      for (String pageKey : loc.getKeys(false)) {
+        if (pageKey.startsWith("page_")) {
+          int idx = Integer.parseInt(pageKey.substring(5));
+          sorted.put(idx, loc.getString(pageKey));
+        }
+      }
+      tosPages.put(localeKey, new ArrayList<>(sorted.values()));
+    }
+  }
+
+  public ItemStack getTosBook(Player player) {
+    String loc = player.getLocale().substring(0, 2).toLowerCase();
+
+    // versuche erst loc, dann en, dann eine leere Liste
+    List<String> pages = tosPages.get(loc);
+    if (pages == null) {
+      pages = tosPages.get("en");
+    }
+    if (pages == null) {
+      pages = Collections.emptyList();
+    }
+
+    ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+    BookMeta meta = (BookMeta) book.getItemMeta();
+    meta.setTitle("TOS");
+    meta.setAuthor("Server");
+
+    // wenn pages leer, kommt ein leeres Buch
+    List<Component> comps = pages.stream()
+      .map(text -> MiniMessage.miniMessage().deserialize(text))
+      .collect(Collectors.toList());
+    meta.pages(comps);
+    book.setItemMeta(meta);
+    return book;
   }
 
   @Override

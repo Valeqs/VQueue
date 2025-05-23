@@ -7,6 +7,11 @@ description: Bukkit companion for PistonQueue
 website: https://pistonmaster.net/
 softdepend: [ "ProtocolLib" ]
 
+commands:
+  tos:
+    description: "TOS akzeptieren/ablehnen"
+    usage: "/tos <accept|decline>"
+
 permissions:
   queue.admin:
     description: Lets you bypass the plugin.

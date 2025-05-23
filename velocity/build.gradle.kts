@@ -13,6 +13,12 @@ dependencies {
   implementation("net.kyori:adventure-api:4.14.0")
   implementation("net.kyori:adventure-text-minimessage:4.14.0")
 
-  compileOnly("com.velocitypowered:velocity-api:3.1.1")
+  implementation("com.velocitypowered:velocity-api:3.1.1")
   annotationProcessor("com.velocitypowered:velocity-api:3.1.1")
+
+  compileOnly("net.luckperms:api:5.4")                     // oder deine LP-Version
+  implementation("org.spongepowered:configurate-yaml:4.1.2")
+  implementation("com.google.guava:guava:31.1-jre")
+  implementation("net.kyori:adventure-api:4.14.0")
+  implementation("net.kyori:adventure-text-minimessage:4.14.0")
 }
