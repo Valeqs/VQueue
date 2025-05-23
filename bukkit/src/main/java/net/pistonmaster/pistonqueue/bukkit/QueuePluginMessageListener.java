@@ -8,7 +8,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.bukkit.permissions.PermissionAttachment;
 import org.jetbrains.annotations.NotNull;
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +35,6 @@ public final class QueuePluginMessageListener implements PluginMessageListener {
       for (int i = 0; i < count; i++) {
         uuids.add(UUID.fromString(in.readUTF()));
       }
-
       for (UUID uuid : uuids) {
         Player target = plugin.getServer().getPlayer(uuid);
         if (target != null) {
@@ -42,27 +44,32 @@ public final class QueuePluginMessageListener implements PluginMessageListener {
 
       // ————————————— TOS ACCEPTED —————————————
     } else if ("ACCEPTED".equals(subChannel)) {
-      // erst das UUID/Name/Timestamp auslesen
-      UUID uuid         = UUID.fromString(in.readUTF());
-      String name       = in.readUTF();    // wird hier nicht weiter gebraucht
-      String timestamp  = in.readUTF();    // optional für Logging
+      // 1) UUID/Name/Timestamp auslesen
+      UUID uuid        = UUID.fromString(in.readUTF());
+      String name      = in.readUTF();    // optional
+      String timestamp = in.readUTF();    // optional für Logging
 
-      // finde den Bukkit-Spieler
-      Player p = plugin.getServer().getPlayer(uuid);
-      if (p == null) {
-        return; // Spieler gerade nicht online
+      // 2) Map + data.yml persistieren
+      plugin.getAcceptedMap().put(uuid, timestamp);
+      ConfigurationNode root = plugin.getDataRoot();
+
+      try {
+        root.node("accepted", uuid.toString()).set(timestamp);
+        YamlConfigurationLoader loader = plugin.getDataLoader();
+        loader.save(root);
+      } catch (Exception ex) {
+        plugin.getLogger().severe("Failed to persist accepted TOS data!");
+        ex.printStackTrace();
       }
 
-      // setze ihm die Permission
+      // 3) PermissionAttachment setzen
+      Player p = plugin.getServer().getPlayer(uuid);
+      if (p == null) return;
       PermissionAttachment attach = p.addAttachment(plugin);
       attach.setPermission("piston.valeqs.tos.accepted", true);
 
-      // optional: Bestätigung im Chat
+      // 4) kurze Chat-Bestätigung
       p.sendMessage("§aDanke! Du hast die Nutzungsbedingungen akzeptiert.");
-
-      // entferne evtl. Bewegungseinschränkungen etc. direkt
-      // (wenn Du da noch Flags in PistonQueueBukkit hast, kannst Du hier aufräumen)
-
     }
   }
 }

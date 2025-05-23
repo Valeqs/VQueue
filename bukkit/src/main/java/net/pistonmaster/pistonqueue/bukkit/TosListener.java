@@ -7,12 +7,15 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
+import java.util.UUID;
+
+import java.util.Objects;
 
 /**
  * Dieser Listener zeigt neuen Spielern das TOS-Buch und verhindert Bewegung,
  * bis sie die Nutzungsbedingungen akzeptiert haben.
  */
-public class TosListener implements Listener {
+public final class TosListener implements Listener {
   private final PistonQueueBukkit plugin;
 
   public TosListener(PistonQueueBukkit plugin) {
@@ -21,17 +24,20 @@ public class TosListener implements Listener {
 
   /**
    * Öffnet beim Betreten des Servers (1 Tick später) das Buch, falls der Spieler
-   * die TOS noch nicht akzeptiert hat.
+   * die TOS noch nicht akzeptiert hat (also noch keine entsprechende Permission besitzt).
    */
   @EventHandler
   public void onJoin(PlayerJoinEvent event) {
     Player player = event.getPlayer();
-    // Wenn TOS bereits akzeptiert, nichts tun
-    if (player.hasPermission("piston.valeqs.tos.accepted")) {
-      return;
-    }
+    UUID uuid = player.getUniqueId();
 
-    // Buch 1 Tick später öffnen, damit der Client bereit ist
+    boolean alreadyAccepted = player.hasPermission("piston.valeqs.tos.accepted")
+      || plugin.getAcceptedMap().containsKey(uuid)
+      || plugin.getDataRoot().node("accepted", uuid.toString()).virtual() == false;
+
+    if (alreadyAccepted) return;
+
+    // Buch 1 Tick später öffnen
     Bukkit.getScheduler().runTaskLater(plugin, () -> {
       ItemStack book = plugin.getTosBook(player);
       player.openBook(book);
@@ -39,25 +45,26 @@ public class TosListener implements Listener {
   }
 
   /**
-   * Verhindert Bewegung und erneutes Öffnen des Buchs bei Drehung,
-   * solange die TOS nicht akzeptiert sind.
+   * Solange die Permission fehlt, keine Bewegung erlauben
+   * und das Buch nach jeder Drehung wieder öffnen.
    */
   @EventHandler
   public void onMove(PlayerMoveEvent event) {
-    Player player = event.getPlayer();
+    Player p = event.getPlayer();
 
-    // Wenn TOS nicht akzeptiert, Bewegung und Drehung blockieren
-    if (!player.hasPermission("piston.valeqs.tos.accepted")) {
-      // Wenn Position sich ändert, abbrechen
+    // Solange noch keine TOS-Permission gesetzt wurde
+    if (!p.hasPermission("piston.valeqs.tos.accepted")) {
+      // Wenn sich die Position ändert → abbrechen
       if (event.getFrom().distanceSquared(event.getTo()) > 0) {
         event.setCancelled(true);
       }
-      // Wenn Blickrichtung (Pitch oder Yaw) sich ändert, Buch erneut öffnen
-      if (event.getFrom().getPitch() != event.getTo().getPitch()
-        || event.getFrom().getYaw() != event.getTo().getYaw()) {
-        // Direkt im nächsten Tick, um Konflikte zu vermeiden
+
+      // Wenn sich die Blickrichtung ändert → Buch neu öffnen
+      if (!Objects.equals(event.getFrom().getPitch(), event.getTo().getPitch())
+        || !Objects.equals(event.getFrom().getYaw(),   event.getTo().getYaw())) {
         Bukkit.getScheduler().runTask(plugin, () -> {
-          player.openBook(plugin.getTosBook(player));
+          ItemStack book = plugin.getTosBook(p);
+          p.openBook(book);
         });
       }
     }

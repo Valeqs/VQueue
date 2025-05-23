@@ -27,6 +27,7 @@ import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.logging.Logger;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -43,9 +44,12 @@ import java.util.HashMap;
 import java.util.TreeMap;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import java.util.Collections;
+
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
+import java.util.UUID;
 
 
 @Getter
@@ -83,10 +87,30 @@ public final class PistonQueueBukkit extends JavaPlugin {
 
   private boolean playXP;
 
+  @Getter
+  private final Map<UUID, String> acceptedMap = new HashMap<>();
+
+  @Getter
+  private ConfigurationNode dataRoot;
+
+  @Getter
+  private YamlConfigurationLoader dataLoader;
+
   @SuppressWarnings("deprecation")
   @Override
   public void onEnable() {
     saveDefaultConfig();
+
+    Path dataFile = getDataFolder().toPath().resolve("data.yml");
+    dataLoader = YamlConfigurationLoader.builder().path(dataFile).build();
+
+    try {
+      dataRoot = dataLoader.load();
+    } catch (IOException e) {
+      getLogger().severe("Konnte data.yml nicht laden");
+      e.printStackTrace();
+    }
+
     this.getCommand("tos").setExecutor(new net.pistonmaster.pistonqueue.bukkit.commands.TosCommand(this));
     loadTosPages();
 
@@ -95,7 +119,6 @@ public final class PistonQueueBukkit extends JavaPlugin {
 
     getServer().getPluginManager().registerEvents(new TosListener(this), this);
     getServer().getPluginManager().registerEvents(new ServerListener(this), this);
-
 
     Logger log = getLogger();
     log.info(ChatColor.BLUE + "PistonQueue V" + getDescription().getVersion());
