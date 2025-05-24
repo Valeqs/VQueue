@@ -71,6 +71,11 @@ public abstract class QueueListenerShared {
 
           event.getPlayer().sendMessage(Config.IF_TARGET_DOWN_SEND_TO_QUEUE_MESSAGE);
 
+          event.getPlayer().sendPlayerList(
+            Config.RESTART_HEADER,
+            Config.RESTART_FOOTER
+          );
+
           QueueType.getQueueType(event.getPlayer())
             .getQueueMap()
             .put(event.getPlayer().getUniqueId(), new QueueType.QueuedPlayer(event.getKickedFrom(), QueueType.QueueReason.SERVER_DOWN));
@@ -115,8 +120,16 @@ public abstract class QueueListenerShared {
   }
 
   private void putQueue(PlayerWrapper player, QueueType type, PQServerPreConnectEvent event, boolean serverFull) {
+    // —–– Bestehende Tab-List senden –––
     player.sendPlayerList(type.getHeader(), type.getFooter());
 
+    // ─── NEU: Bei Server-Down: Restart-TabList ───
+    QueueType.QueuedPlayer qp = type.getQueueMap().get(player.getUniqueId());
+    if (qp != null && qp.queueReason() == QueueType.QueueReason.SERVER_DOWN) {
+      player.sendPlayerList(Config.RESTART_HEADER, Config.RESTART_FOOTER);
+    }
+
+    // —–– der übrige Code bleibt unverändert –––
     if (serverFull && !type.getQueueMap().containsKey(player.getUniqueId())) {
       player.sendMessage(Config.SERVER_IS_FULL_MESSAGE);
     }

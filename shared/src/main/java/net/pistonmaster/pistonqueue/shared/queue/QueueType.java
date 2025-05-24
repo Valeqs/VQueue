@@ -51,12 +51,18 @@ public class QueueType {
   private List<String> footer;
 
   public static QueueType getQueueType(PlayerWrapper player) {
-    for (QueueType type : Config.QUEUE_TYPES) {
-      if (type.getPermission().equals("default") || player.hasPermission(type.getPermission())) {
-        return type;
-      }
+    // 1) Wer die Veteran-Perm hat, landet im zweiten Typ (Index 1)
+    if (player.hasPermission("queue.veteran")) {
+      return Config.QUEUE_TYPES[1];
     }
-    throw new RuntimeException("No queue type found for player! (There is no default queue type)");
+
+    // 2) Wer die Priority-Perm hat, landet im dritten Typ (Index 2)
+    if (player.hasPermission("queue.priority")) {
+      return Config.QUEUE_TYPES[2];
+    }
+
+    // 3) Alle anderen landen im Default-Typ (Index 0)
+    return Config.QUEUE_TYPES[0];
   }
 
   public enum QueueReason {

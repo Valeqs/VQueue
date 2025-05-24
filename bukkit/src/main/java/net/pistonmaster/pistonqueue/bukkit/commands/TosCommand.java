@@ -64,7 +64,6 @@ public class TosCommand implements CommandExecutor {
         outAccept.writeUTF(Instant.now().toString());            // Zeitstempel
         player.sendPluginMessage(plugin, "piston:queue", outAccept.toByteArray());
 
-        player.sendMessage(ChatColor.GREEN + "Danke! Du hast die Nutzungsbedingungen akzeptiert.");
         break;
 
       case "decline":

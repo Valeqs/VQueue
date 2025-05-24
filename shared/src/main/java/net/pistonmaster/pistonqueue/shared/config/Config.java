@@ -44,6 +44,9 @@ public final class Config {
   public static QueueType[] QUEUE_TYPES; // Not allowed to be resized due to data corruption
   public static BanType SHADOW_BAN_TYPE;
 
+  public static List<String> RESTART_HEADER;
+  public static List<String> RESTART_FOOTER;
+
   private Config() {
   }
 }

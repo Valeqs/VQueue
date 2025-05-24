@@ -169,6 +169,11 @@ public interface PistonQueuePlugin {
         continue;
       }
 
+      // ❌ ToS noch nicht akzeptiert? Dann keine Positions-Meldung senden
+      if (!player.get().hasPermission("piston.valeqs.tos.accepted")) {
+        continue;
+      }
+
       int currentPosition = position.incrementAndGet();
       String rawMessage = Config.QUEUE_POSITION.replace("%total%", String.valueOf(queue.getQueueMap().size()));
       String chatMessage = replacePosition(rawMessage, currentPosition, queue);
@@ -184,9 +189,22 @@ public interface PistonQueuePlugin {
       getPlayer(entry.getKey()).ifPresent(player -> {
         int incrementedPosition = position.incrementAndGet();
 
+        // === NEU: Neustart-Prüfung ===
+        QueueType.QueuedPlayer qp = queue.getQueueMap().get(player.getUniqueId());
+        if (qp != null && qp.queueReason() == QueueType.QueueReason.SERVER_DOWN) {
+          // Neustart-Fall: statt Standard-Tab die Restart-Tab anzeigen
+          player.sendPlayerList(Config.RESTART_HEADER, Config.RESTART_FOOTER);
+          return; // <— hier abbrechen, sonst würde auch noch der Standard-Tab gesendet
+        }
+
+        // === Standard-Tab ===
         player.sendPlayerList(
-          queue.getHeader().stream().map(str -> replacePosition(str, incrementedPosition, queue)).collect(Collectors.toList()),
-          queue.getFooter().stream().map(str -> replacePosition(str, incrementedPosition, queue)).collect(Collectors.toList()));
+          queue.getHeader().stream()
+            .map(str -> replacePosition(str, incrementedPosition, queue))
+            .collect(Collectors.toList()),
+          queue.getFooter().stream()
+            .map(str -> replacePosition(str, incrementedPosition, queue))
+            .collect(Collectors.toList()));
       });
     }
   }
