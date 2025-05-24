@@ -46,6 +46,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import java.util.UUID;
+import java.util.Map;
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
+
 public interface PistonQueuePlugin {
   Optional<PlayerWrapper> getPlayer(UUID uuid);
 
@@ -66,6 +71,26 @@ public interface PistonQueuePlugin {
   String getVersion();
 
   Path getDataDirectory();
+
+  /**
+   * Liefert die Map mit allen UUIDs, die bereits die ToS akzeptiert haben.
+   */
+  Map<UUID, String> getAcceptedMap();
+
+  /**
+   * Liefert das ConfigurationNode-Objekt für data.yml (Root-Node).
+   */
+  ConfigurationNode getDataRoot();
+
+  /**
+   * Speichert die data.yml mit dem aktuellen Inhalt von getDataRoot().
+   */
+  void saveData();
+
+  /**
+   * Liefert den YAML-Loader, der zum Lesen/Schreiben von data.yml genutzt wird.
+   */
+  YamlConfigurationLoader getDataLoader();
 
   default void scheduleTasks(QueueListenerShared queueListener) {
     // Sends the position message and updates tab on an interval in chat

@@ -29,15 +29,22 @@ public final class TosListener implements Listener {
   @EventHandler
   public void onJoin(PlayerJoinEvent event) {
     Player player = event.getPlayer();
-    UUID uuid = player.getUniqueId();
 
+    // ─── NEU: Bukkit-Permission-Integration prüfen ───
+    if (player.hasPermission("piston.valeqs.tos.accepted.bukkit")) {
+      return; // schon akzeptiert → nichts weiter tun
+    }
+
+    UUID uuid = player.getUniqueId();
     boolean alreadyAccepted = player.hasPermission("piston.valeqs.tos.accepted")
       || plugin.getAcceptedMap().containsKey(uuid)
-      || plugin.getDataRoot().node("accepted", uuid.toString()).virtual() == false;
+      || !plugin.getDataRoot().node("accepted", uuid.toString()).virtual();
 
-    if (alreadyAccepted) return;
+    if (alreadyAccepted) {
+      return; // Velocity-Permission, Map oder data.yml sagen: bereits akzeptiert
+    }
 
-    // Buch 1 Tick später öffnen
+    // Buch 1 Tick später öffnen (bestehende Logik)
     Bukkit.getScheduler().runTaskLater(plugin, () -> {
       ItemStack book = plugin.getTosBook(player);
       player.openBook(book);
@@ -53,7 +60,8 @@ public final class TosListener implements Listener {
     Player p = event.getPlayer();
 
     // Solange noch keine TOS-Permission gesetzt wurde
-    if (!p.hasPermission("piston.valeqs.tos.accepted")) {
+    if (!(p.hasPermission("piston.valeqs.tos.accepted.bukkit")
+      || p.hasPermission("piston.valeqs.tos.accepted"))) {
       // Wenn sich die Position ändert → abbrechen
       if (event.getFrom().distanceSquared(event.getTo()) > 0) {
         event.setCancelled(true);

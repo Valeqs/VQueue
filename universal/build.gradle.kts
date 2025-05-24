@@ -6,7 +6,6 @@ plugins {
 
 val platforms = setOf(
     rootProject.projects.pistonqueueBukkit,
-    rootProject.projects.pistonqueueBungee,
     rootProject.projects.pistonqueueVelocity
 ).map { it.dependencyProject }
 

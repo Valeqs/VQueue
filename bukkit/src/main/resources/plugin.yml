@@ -6,6 +6,7 @@ author: AlexProgrammerDE
 description: Bukkit companion for PistonQueue
 website: https://pistonmaster.net/
 softdepend: [ "ProtocolLib" ]
+depend: [LuckPerms]
 
 commands:
   tos:

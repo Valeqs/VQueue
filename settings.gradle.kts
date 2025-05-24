@@ -64,7 +64,6 @@ setOf(
   "placeholder",
   "shared",
   "bukkit",
-  "bungee",
   "velocity",
   "universal"
 ).forEach { setupPQSubproject(it) }

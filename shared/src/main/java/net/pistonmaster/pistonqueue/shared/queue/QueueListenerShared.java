@@ -212,6 +212,17 @@ public abstract class QueueListenerShared {
       }
       PlayerWrapper player = optional.get();
 
+      // hier einfügen (Block 3):
+      UUID uuid = player.getUniqueId();
+      boolean accepted =
+        player.hasPermission("piston.valeqs.tos.accepted")             // wenn du die Permission direkt vergeben willst
+          || plugin.getAcceptedMap().containsKey(uuid)                       // wenn es in-memory markiert ist
+          || !plugin.getDataRoot().node("accepted", uuid.toString()).virtual(); // wenn’s in data.yml steht
+
+      if (!accepted) {
+        continue;  // ToS noch nicht akzeptiert – überspringen
+      }
+
       type.getQueueMap().remove(entry.getKey());
 
       player.sendMessage(Config.JOINING_TARGET_SERVER);

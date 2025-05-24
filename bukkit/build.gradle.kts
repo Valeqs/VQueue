@@ -10,6 +10,7 @@ dependencies {
     implementation("org.spongepowered:configurate-yaml:4.1.2")
     implementation("com.google.guava:guava:31.1-jre")
 
+    compileOnly ("net.luckperms:api:5.4")
     compileOnly("com.comphenix.protocol:ProtocolLib:5.3.0")
     compileOnly("io.papermc.paper:paper-api:1.21.1-R0.1-SNAPSHOT")
     compileOnly("net.kyori:adventure-api:4.14.0")

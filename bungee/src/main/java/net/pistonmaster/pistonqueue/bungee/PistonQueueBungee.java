@@ -49,6 +49,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import org.spongepowered.configurate.ConfigurationNode;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
+
+import java.util.Map;
+
 @Getter
 public final class PistonQueueBungee extends Plugin implements PistonQueuePlugin {
   private final QueueListenerBungee queueListenerBungee = new QueueListenerBungee(this);
@@ -234,6 +239,33 @@ public final class PistonQueueBungee extends Plugin implements PistonQueuePlugin
       @Override
       public void disconnect(String message) {
         player.disconnect(ChatUtils.parseToComponent(message));
+      }
+
+      @Override
+      public Map<UUID,String> getAcceptedMap() {
+        return Collections.emptyMap();
+      }
+
+      // 2) Stub-dataRoot
+      @Override
+      public ConfigurationNode getDataRoot() {
+        // kein data.yml auf Bungee, gib einfach einen leeren Root-Node zurück
+        return YamlConfigurationLoader
+          .builder()
+          .build()
+          .createNode();
+      }
+
+      // 3) saveData braucht hier gar nichts zu tun
+      @Override
+      public void saveData() {
+        // no-op
+      }
+
+      // 4) ein beliebiger Loader, damit getDataLoader() existiert
+      @Override
+      public YamlConfigurationLoader getDataLoader() {
+        return YamlConfigurationLoader.builder().build();
       }
     };
   }

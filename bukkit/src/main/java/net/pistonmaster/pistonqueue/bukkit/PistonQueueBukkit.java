@@ -51,6 +51,8 @@ import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 import java.util.UUID;
 
+import org.bukkit.plugin.messaging.PluginMessageListener;
+
 
 @Getter
 public final class PistonQueueBukkit extends JavaPlugin {

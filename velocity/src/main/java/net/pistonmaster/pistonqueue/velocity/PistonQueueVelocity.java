@@ -52,6 +52,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import com.google.common.io.ByteArrayDataOutput;
+
 @Plugin(
   id          = "pistonqueue",
   name        = PluginData.NAME,
@@ -74,6 +80,9 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
   private ConfigurationNode dataConfigNode;
   private final Map<UUID, AcceptedData> acceptedMap = new ConcurrentHashMap<>();
 
+  // Für Rate-Limiting der WARN-Meldungen
+  private final Map<String, Long> lastWarning = new ConcurrentHashMap<>();
+
   @Inject
   public PistonQueueVelocity(
     ProxyServer proxyServer,
@@ -93,6 +102,35 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
   public void onProxyInitialization(ProxyInitializeEvent event) {
     info("Loading config");
     processConfig(dataDirectory);
+
+    // ─── ToS: data.yml laden ───
+    try {
+      // data.yml anlegen oder kopieren, falls noch nicht vorhanden
+      dataFile = dataDirectory.resolve("data.yml").toFile();
+      if (!dataFile.exists()) {
+        try (InputStream in = getClass().getResourceAsStream("/data.yml")) {
+          Files.copy(in, dataFile.toPath());
+        }
+      }
+      // Configurate-Loader initialisieren und Node laden
+      loader = YamlConfigurationLoader.builder()
+        .path(dataFile.toPath())
+        .build();
+      dataConfigNode = loader.load();
+      // acceptedMap füllen
+      Map<Object, ? extends ConfigurationNode> children = dataConfigNode.node("accepted").childrenMap();
+      for (Map.Entry<Object, ? extends ConfigurationNode> e : children.entrySet()) {
+        UUID uuid = UUID.fromString(e.getKey().toString());
+        ConfigurationNode node = e.getValue();
+        acceptedMap.put(uuid, new AcceptedData(
+          node.node("name").getString(""),
+          node.node("time").getString("")
+        ));
+      }
+    } catch (IOException ex) {
+      logger.error("Fehler beim Laden der ToS-Daten!", ex);
+    }
+
     initializeReservationSlots();
 
     info("Looking for hooks");
@@ -173,7 +211,12 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
 
   @Override
   public void warning(String message) {
-    logger.warn(message);
+    long now = System.currentTimeMillis();
+    Long last = lastWarning.get(message);
+    if (last == null || now - last >= 5_000) {   // 5 Sekunden
+      logger.warn(message);
+      lastWarning.put(message, now);
+    }
   }
 
   @Override
@@ -226,8 +269,13 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
 
       @Override
       public void connect(String server) {
-        // Proxy-Weiterleitung per PluginMessage/ServerPreConnect
-        // nicht direkt connecten
+        // echten Proxy-Connect auslösen
+        RegisteredServer target = proxyServer
+          .getServer(server)
+          .orElseThrow(() ->
+            new IllegalStateException("Server nicht gefunden: " + server)
+          );
+        player.createConnectionRequest(target).connect();
       }
 
       @Override
@@ -346,40 +394,50 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
 
   @Subscribe
   public void onPluginMessage(PluginMessageEvent event) {
-    if (!event.getIdentifier().equals(MinecraftChannelIdentifier.create("piston", "queue"))) {
+    MinecraftChannelIdentifier id = MinecraftChannelIdentifier.create("piston", "queue");
+    if (!event.getIdentifier().equals(id)) {
       return;
     }
 
+    // logger.info("<<< Velocity hat PluginMessage erhalten: channel=\"" + id + "\"");
+
     ByteArrayDataInput in = ByteStreams.newDataInput(event.getData());
-    if (!"ACCEPTED".equals(in.readUTF())) return;
+    String subChannel = in.readUTF();
+    // logger.info("<<< Velocity SubChannel: " + subChannel);
 
-    UUID uuid      = UUID.fromString(in.readUTF());
-    String name    = in.readUTF();
-    String timestamp = in.readUTF();
+    if ("ACCEPTED".equals(subChannel)) {
+      // ─── ACCEPTED ───
+      UUID uuid      = UUID.fromString(in.readUTF());
+      String name    = in.readUTF();
+      String timestamp = in.readUTF();
 
-    // 1) remember & persist
-    acceptedMap.put(uuid, new AcceptedData(name, timestamp));
-    saveAcceptedData();
+      acceptedMap.put(uuid, new AcceptedData(name, timestamp));
+      saveAcceptedData();
 
-    // 2) assign the LP node & redirect
-    LuckPerms api = LuckPermsProvider.get();
-    Node tosNode = Node.builder("piston.valeqs.tos.accepted").build();
+      LuckPerms api = LuckPermsProvider.get();
+      Node tosNode = Node.builder("piston.valeqs.tos.accepted").value(true).build();
+      api.getUserManager()
+        .modifyUser(uuid, u -> u.data().add(tosNode))
+        .thenRun(() -> logger.info("Proxy-LP: Node gesetzt für " + uuid));
 
-    proxyServer.getPlayer(uuid).ifPresent(proxyPlayer -> {
-      // a) fetch the **live** LuckPerms User
-      User lpUser = api
-        .getPlayerAdapter(com.velocitypowered.api.proxy.Player.class)
-        .getUser(proxyPlayer);
+      proxyServer.getPlayer(uuid).ifPresent(proxyPlayer -> {
+        ByteArrayDataOutput out = ByteStreams.newDataOutput();
+        out.writeUTF("ACCEPTED");
+        out.writeUTF(uuid.toString());
+        out.writeUTF(name);
+        out.writeUTF(timestamp);
+        proxyPlayer.getCurrentServer().ifPresent(serverConnection ->
+          serverConnection.sendPluginMessage(id, out.toByteArray())
+        );
+        // logger.info("Velocity → Queue: ACCEPTED für " + uuid);
+      });
 
-      // b) give them the permission
-      lpUser.data().add(tosNode);
-      api.getUserManager().saveUser(lpUser);
-
-      // c) send them immediately to “main”
-      RegisteredServer main = proxyServer.getServer("main")
-        .orElseThrow(() -> new IllegalStateException("Main-Server nicht gefunden"));
-      proxyPlayer.createConnectionRequest(main).connect();
-    });
+    } else if ("DECLINE".equals(subChannel)) {
+      // ─── DECLINE ───
+      UUID uuid = UUID.fromString(in.readUTF());
+      logger.info("<<< Velocity: TOS DECLINE für " + uuid);
+      proxyServer.getPlayer(uuid).ifPresent(p -> p.disconnect(Component.text("ToS abgelehnt.")));
+    }
   }
 
   @Subscribe
@@ -397,5 +455,30 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
         .orElseThrow(() -> new IllegalStateException("Queue-Server nicht gefunden"));
       event.setResult(ServerPreConnectEvent.ServerResult.allowed(queue));
     }
+  }
+
+  @Override
+  public Map<UUID, String> getAcceptedMap() {
+    // Konvertiere unser interne Map<UUID,AcceptedData> in Map<UUID,String> (nur Timestamp)
+    Map<UUID, String> map = new HashMap<>();
+    for (Map.Entry<UUID, AcceptedData> e : acceptedMap.entrySet()) {
+      map.put(e.getKey(), e.getValue().getTime());
+    }
+    return map;
+  }
+
+  @Override
+  public ConfigurationNode getDataRoot() {
+    return dataConfigNode;
+  }
+
+  @Override
+  public void saveData() {
+    saveAcceptedData();
+  }
+
+  @Override
+  public YamlConfigurationLoader getDataLoader() {
+    return loader;
   }
 }
