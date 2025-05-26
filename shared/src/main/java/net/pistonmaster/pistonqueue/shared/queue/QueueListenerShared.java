@@ -76,7 +76,7 @@ public abstract class QueueListenerShared {
             Config.RESTART_FOOTER
           );
 
-          QueueType.getQueueType(event.getPlayer())
+          Config.QUEUE_TYPES[0] // REGULAR
             .getQueueMap()
             .put(event.getPlayer().getUniqueId(), new QueueType.QueuedPlayer(event.getKickedFrom(), QueueType.QueueReason.SERVER_DOWN));
         });
@@ -108,13 +108,15 @@ public abstract class QueueListenerShared {
     }
 
     QueueType type = QueueType.getQueueType(player);
-
-    boolean serverFull = false;
-    if (Config.ALWAYS_QUEUE || (serverFull = isServerFull(type))) {
+    if (type.isFull() && !type.getQueueMap().containsKey(player.getUniqueId())) {
+      player.sendMessage(Config.SERVER_IS_FULL_MESSAGE);
+      return;
+    }
+    if (Config.ALWAYS_QUEUE || isServerFull(type)) {
       if (player.hasPermission(Config.QUEUE_BYPASS_PERMISSION)) {
         event.setTarget(Config.TARGET_SERVER);
       } else {
-        putQueue(player, type, event, serverFull);
+        putQueue(player, type, event, false); // oder serverFull, wenn du es brauchst
       }
     }
   }
@@ -126,7 +128,12 @@ public abstract class QueueListenerShared {
     // ─── NEU: Bei Server-Down: Restart-TabList ───
     QueueType.QueuedPlayer qp = type.getQueueMap().get(player.getUniqueId());
     if (qp != null && qp.queueReason() == QueueType.QueueReason.SERVER_DOWN) {
-      player.sendPlayerList(Config.RESTART_HEADER, Config.RESTART_FOOTER);
+      if (player.hasPermission("group.default")) { // << NEU!
+        player.sendPlayerList(Config.RESTART_HEADER, Config.RESTART_FOOTER);
+      }
+    } else {
+      // Normale Tab-List (je nach Typ)
+      player.sendPlayerList(type.getHeader(), type.getFooter());
     }
 
     // —–– der übrige Code bleibt unverändert –––
@@ -275,13 +282,30 @@ public abstract class QueueListenerShared {
     ByteArrayDataOutput out = ByteStreams.newDataOutput();
     out.writeUTF("xpV2");
 
-    List<UUID> uuids = type.getQueueMap().keySet()
-      .stream()
+    // Filter: Nur Spieler, die ToS akzeptiert haben!
+    List<UUID> uuids = type.getQueueMap().keySet().stream()
+      .filter(id -> {
+        // Spieler-Objekt holen
+        Optional<PlayerWrapper> playerOpt = plugin.getPlayer(id);
+        if (playerOpt.isEmpty()) return false;
+        PlayerWrapper player = playerOpt.get();
+
+        // Prüfen ob Permission oder "akzeptiert"
+        boolean accepted =
+          player.hasPermission("piston.valeqs.tos.accepted.bukkit") // <- Bukkit-Permission!
+            || plugin.getAcceptedMap().containsKey(id) // Memory-Map
+            || !plugin.getDataRoot().node("accepted", id.toString()).virtual(); // data.yml
+
+        return accepted;
+      })
       .limit(5)
       .toList();
 
+    // Wenn keine passenden Spieler -> Kein Sound senden
+    if (uuids.isEmpty()) return;
+
     out.writeInt(uuids.size());
-    uuids.forEach(id -> out.writeUTF(id.toString()));
+    uuids.forEach(uuid -> out.writeUTF(uuid.toString()));
 
     plugin.getServer(Config.QUEUE_SERVER).ifPresent(server ->
       server.sendPluginMessage("piston:queue", out.toByteArray()));

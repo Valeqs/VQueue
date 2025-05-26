@@ -67,14 +67,12 @@ public class TosCommand implements CommandExecutor {
         break;
 
       case "decline":
-        // Velocity informieren, dass der Spieler abgelehnt hat
         ByteArrayDataOutput outDecline = ByteStreams.newDataOutput();
-        outDecline.writeUTF("TOS_DECLINE");
+        outDecline.writeUTF("TOS_DECLINE"); // Sub-Channel
+        outDecline.writeUTF(player.getUniqueId().toString()); // UUID auch mitsenden!
         player.sendPluginMessage(plugin, "piston:queue", outDecline.toByteArray());
 
         player.sendMessage(ChatColor.RED + "Du hast die Nutzungsbedingungen abgelehnt.");
-        player.kickPlayer(ChatColor.RED + "Verbindung getrennt: Nutzungsbedingungen nicht akzeptiert.");
-        break;
 
       default:
         player.sendMessage(ChatColor.RED + "Unbekannter Subbefehl. Nutze /tos accept oder /tos decline.");

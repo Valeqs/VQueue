@@ -52,7 +52,7 @@ public final class QueuePluginMessageListener implements PluginMessageListener {
     }
     // ————————————— TOS ACCEPTED —————————————
     else if ("ACCEPTED".equals(subChannel)) {
-      plugin.getLogger().info("Bukkit-Listener: TOS ACCEPTED-Block erreicht für Kanal „piston:queue“");
+      //plugin.getLogger().info("Bukkit-Listener: TOS ACCEPTED-Block erreicht für Kanal „piston:queue“");
       // 1) UUID/Name/Timestamp auslesen
       UUID uuid = UUID.fromString(in.readUTF());
       plugin.getLogger().info("TOS ACCEPTED für " + uuid);

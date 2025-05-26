@@ -66,6 +66,8 @@ public interface PistonQueuePlugin {
 
   void error(String message);
 
+  void updateTab(QueueType queue, Set<String> onlineServers);
+
   List<String> getAuthors();
 
   String getVersion();
@@ -95,19 +97,34 @@ public interface PistonQueuePlugin {
   default void scheduleTasks(QueueListenerShared queueListener) {
     // Sends the position message and updates tab on an interval in chat
     schedule(() -> {
-      if (queueListener.getOnlineServers().contains(Config.TARGET_SERVER)) {
-        for (QueueType type : Config.QUEUE_TYPES) {
+      // Online-Server-Set holen:
+      Set<String> onlineServers = queueListener.getOnlineServers();
+
+      // --- NEU: Restart-Tablist für alle anzeigen, wenn Target-Server offline ---
+      boolean targetOnline = onlineServers.contains(Config.TARGET_SERVER);
+
+      for (QueueType type : Config.QUEUE_TYPES) {
+        if (targetOnline) {
+          // Normale Queue-Anzeige
           if (Config.POSITION_MESSAGE_CHAT) {
             sendMessage(type, MessageType.CHAT);
           }
           if (Config.POSITION_MESSAGE_HOT_BAR) {
             sendMessage(type, MessageType.ACTION_BAR);
           }
-        }
-      } else if (Config.PAUSE_QUEUE_IF_TARGET_DOWN) {
-        for (QueueType type : Config.QUEUE_TYPES) {
+          // Tablist aktualisieren
+          updateTab(type, onlineServers); // ACHTUNG: updateTab entsprechend anpassen!
+        } else {
+          // Target-Server down: Restart-Tablist für ALLE Spieler!
           type.getQueueMap().forEach((id, queuedPlayer) ->
-            getPlayer(id).ifPresent(value -> value.sendMessage(Config.PAUSE_QUEUE_IF_TARGET_DOWN_MESSAGE)));
+            getPlayer(id).ifPresent(player -> player.sendPlayerList(Config.RESTART_HEADER, Config.RESTART_FOOTER))
+          );
+
+          // Zusätzlich optional: PAUSE_QUEUE Message
+          if (Config.PAUSE_QUEUE_IF_TARGET_DOWN) {
+            type.getQueueMap().forEach((id, queuedPlayer) ->
+              getPlayer(id).ifPresent(value -> value.sendMessage(Config.PAUSE_QUEUE_IF_TARGET_DOWN_MESSAGE)));
+          }
         }
       }
     }, Config.POSITION_MESSAGE_DELAY, Config.POSITION_MESSAGE_DELAY, TimeUnit.MILLISECONDS);
@@ -118,8 +135,10 @@ public interface PistonQueuePlugin {
         return;
       }
 
+      Set<String> onlineServers = queueListener.getOnlineServers(); // <--- DAS HIER EINZUFÜGEN!
+
       for (QueueType type : Config.QUEUE_TYPES) {
-        updateTab(type);
+        updateTab(type, onlineServers); // <--- KEIN FEHLER MEHR!
       }
     }, Config.QUEUE_MOVE_DELAY, Config.QUEUE_MOVE_DELAY, TimeUnit.MILLISECONDS);
 
@@ -182,32 +201,6 @@ public interface PistonQueuePlugin {
     }
   }
 
-  default void updateTab(QueueType queue) {
-    AtomicInteger position = new AtomicInteger();
-
-    for (Map.Entry<UUID, QueueType.QueuedPlayer> entry : new LinkedHashMap<>(queue.getQueueMap()).entrySet()) {
-      getPlayer(entry.getKey()).ifPresent(player -> {
-        int incrementedPosition = position.incrementAndGet();
-
-        // === NEU: Neustart-Prüfung ===
-        QueueType.QueuedPlayer qp = queue.getQueueMap().get(player.getUniqueId());
-        if (qp != null && qp.queueReason() == QueueType.QueueReason.SERVER_DOWN) {
-          // Neustart-Fall: statt Standard-Tab die Restart-Tab anzeigen
-          player.sendPlayerList(Config.RESTART_HEADER, Config.RESTART_FOOTER);
-          return; // <— hier abbrechen, sonst würde auch noch der Standard-Tab gesendet
-        }
-
-        // === Standard-Tab ===
-        player.sendPlayerList(
-          queue.getHeader().stream()
-            .map(str -> replacePosition(str, incrementedPosition, queue))
-            .collect(Collectors.toList()),
-          queue.getFooter().stream()
-            .map(str -> replacePosition(str, incrementedPosition, queue))
-            .collect(Collectors.toList()));
-      });
-    }
-  }
 
   default String replacePosition(String text, int position, QueueType type) {
     if (type.getDurationFromPosition().containsKey(position)) {

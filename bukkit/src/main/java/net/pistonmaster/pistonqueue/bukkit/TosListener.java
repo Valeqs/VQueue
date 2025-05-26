@@ -11,6 +11,8 @@ import java.util.UUID;
 
 import java.util.Objects;
 
+import org.bukkit.event.EventPriority;
+
 /**
  * Dieser Listener zeigt neuen Spielern das TOS-Buch und verhindert Bewegung,
  * bis sie die Nutzungsbedingungen akzeptiert haben.
@@ -55,7 +57,7 @@ public final class TosListener implements Listener {
    * Solange die Permission fehlt, keine Bewegung erlauben
    * und das Buch nach jeder Drehung wieder öffnen.
    */
-  @EventHandler
+  @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
   public void onMove(PlayerMoveEvent event) {
     Player p = event.getPlayer();
 
@@ -65,11 +67,16 @@ public final class TosListener implements Listener {
       // Wenn sich die Position ändert → abbrechen
       if (event.getFrom().distanceSquared(event.getTo()) > 0) {
         event.setCancelled(true);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+          p.sendActionBar("§cDu musst auf 'Akzeptieren' drücken, um spielen zu können.");
+          System.out.println("onMove ausgeführt!");
+        }, 1L);
       }
 
       // Wenn sich die Blickrichtung ändert → Buch neu öffnen
       if (!Objects.equals(event.getFrom().getPitch(), event.getTo().getPitch())
         || !Objects.equals(event.getFrom().getYaw(),   event.getTo().getYaw())) {
+        p.sendActionBar("§cDu musst auf 'Akzeptieren' drücken, um spielen zu können.");
         Bukkit.getScheduler().runTask(plugin, () -> {
           ItemStack book = plugin.getTosBook(p);
           p.openBook(book);

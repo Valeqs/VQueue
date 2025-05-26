@@ -51,18 +51,26 @@ public class QueueType {
   private List<String> footer;
 
   public static QueueType getQueueType(PlayerWrapper player) {
-    // 1) Wer die Veteran-Perm hat, landet im zweiten Typ (Index 1)
+    //System.out.println("DEBUG: Spieler " + player.getName() +
+    //" hat veteran=" + player.hasPermission("queue.veteran") +
+    //", priority=" + player.hasPermission("queue.priority") +
+    //", default=" + player.hasPermission("default"));
+
+    // Veteran
     if (player.hasPermission("queue.veteran")) {
+      //System.out.println("DEBUG: Rückgabe VETERAN!");
+      return Config.QUEUE_TYPES[0];
+    }
+
+    // Priority
+    if (player.hasPermission("queue.priority")) {
+      //System.out.println("DEBUG: Rückgabe PRIORITY!");
       return Config.QUEUE_TYPES[1];
     }
 
-    // 2) Wer die Priority-Perm hat, landet im dritten Typ (Index 2)
-    if (player.hasPermission("queue.priority")) {
-      return Config.QUEUE_TYPES[2];
-    }
-
-    // 3) Alle anderen landen im Default-Typ (Index 0)
-    return Config.QUEUE_TYPES[0];
+    // Default
+    //System.out.println("DEBUG: Rückgabe DEFAULT!");
+    return Config.QUEUE_TYPES[2];
   }
 
   public enum QueueReason {
@@ -75,4 +83,7 @@ public class QueueType {
     String targetServer,
     QueueReason queueReason
   ) {}
+  public boolean isFull() {
+    return queueMap.size() >= reservedSlots;
+  }
 }

@@ -14,6 +14,7 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import lombok.Getter;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.pistonmaster.pistonqueue.data.PluginData;
 import net.pistonmaster.pistonqueue.shared.chat.MessageType;
@@ -30,6 +31,8 @@ import net.pistonmaster.pistonutils.update.GitHubUpdateChecker;
 import net.pistonmaster.pistonutils.update.SemanticVersion;
 import org.bstats.velocity.Metrics;
 import org.slf4j.Logger;
+
+import net.pistonmaster.pistonqueue.shared.config.Config;
 
 import com.google.common.io.ByteArrayDataInput;
 import com.google.common.io.ByteStreams;
@@ -57,6 +60,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.google.common.io.ByteArrayDataOutput;
+
+import net.pistonmaster.pistonqueue.shared.queue.QueueType;
 
 @Plugin(
   id          = "pistonqueue",
@@ -432,11 +437,16 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
         // logger.info("Velocity → Queue: ACCEPTED für " + uuid);
       });
 
-    } else if ("DECLINE".equals(subChannel)) {
+    } else if ("DECLINE".equals(subChannel) || "TOS_DECLINE".equals(subChannel)) {
       // ─── DECLINE ───
       UUID uuid = UUID.fromString(in.readUTF());
       logger.info("<<< Velocity: TOS DECLINE für " + uuid);
-      proxyServer.getPlayer(uuid).ifPresent(p -> p.disconnect(Component.text("ToS abgelehnt.")));
+      proxyServer.getPlayer(uuid).ifPresent(p ->
+        p.disconnect(Component.text(
+          "Du musst die Nutzungsbedingungen akzeptieren, um auf diesem Server spielen zu können.",
+          NamedTextColor.GOLD
+        ))
+      );
     }
   }
 
@@ -480,5 +490,19 @@ public final class PistonQueueVelocity implements PistonQueuePlugin {
   @Override
   public YamlConfigurationLoader getDataLoader() {
     return loader;
+  }
+
+  @Override
+  public void updateTab(QueueType queue, Set<String> onlineServers) {
+    // Beispielcode – hier muss deine Tablist-Logik rein!
+    for (UUID uuid : queue.getQueueMap().keySet()) {
+      getPlayer(uuid).ifPresent(player -> {
+        if (!onlineServers.contains(Config.TARGET_SERVER)) {
+          player.sendPlayerList(Config.RESTART_HEADER, Config.RESTART_FOOTER);
+        } else {
+          // Hier kommt deine normale Tablist-Logik hin (falls nötig)
+        }
+      });
+    }
   }
 }
